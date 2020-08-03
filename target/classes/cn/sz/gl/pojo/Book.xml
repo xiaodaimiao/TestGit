@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.sz.gl.dao.IBookDAO" >
+
+	<sql id="bookColumnSql">
+		 bookid, book_name, public_dept, book_price, public_date, book_auth, img_path, summary
+	</sql>
+	
+	<select id="findBookSplitAndCondition" parameterType="java.util.Map" resultMap="bookinfo" >
+		select <include refid="bookColumnSql"/> from 
+		(select rownum rn, <include refid="bookColumnSql"/> from 
+		(select <include refid="bookColumnSql"/> from book 
+		
+		<where>
+			<if test="bookname!=null"> book_name like '%${bookname}%' </if>
+			<if test="deptname!=null"> and public_dept like '%${deptname}%' </if>
+			<if test="loprice!=null &amp;&amp; hiprice!=null"> and book_price between #{loprice} and #{hiprice} </if>
+			<if test="auth!=null"> and book_auth like '%${auth}%' </if>
+		</where>
+		
+		 order by book_auth desc) where rownum&lt;=#{end}) where rn&gt;#{start}
+	</select>
+	
+	<resultMap type="cn.sz.gl.pojo.Book" id="bookinfo">
+		<id column="bookid" property="bookid" />
+		<result column="book_name" property="bookName" />
+		<result column="public_dept" property="publicDept" />
+		<result column="book_price" property="price" />
+		<result column="public_date" property="publicDate" />
+		<result column="book_auth" property="auth" />
+		<result column="img_path" property="imgPath" />
+	</resultMap>
+	
+	
+	<select id="countBook" parameterType="java.util.Map" resultType="java.lang.Integer">
+		select count(bookid) from book 
+		<where>
+			<if test="bookname!=null"> book_name like '%${bookname}%' </if>
+			<if test="deptname!=null"> and public_dept like '%${deptname}%' </if>
+			<if test="loprice!=null &amp;&amp; hiprice!=null"> and book_price between #{loprice} and #{hiprice} </if>
+			<if test="auth!=null"> and book_auth like '%${auth}%' </if>
+		</where>
+	</select>
+	
+	
+	<!-- 根据书籍编号，查询书籍详情 -->
+	<select id="findBookByBookid" parameterType="java.lang.Integer" resultMap="bookinfo"  >
+		select <include refid="bookColumnSql"/> from book where bookid=#{bookid}
+	</select>
+	
+	
+	<insert id="addBook" parameterType="cn.sz.gl.pojo.Book" >
+		insert into book
+		  (bookid, book_name, public_dept, book_price, public_date, book_auth, img_path, summary)
+		values
+		  (bookseq.nextval, #{bookName}, #{publicDept},#{price},#{publicDate},#{auth},#{imgPath,jdbcType=VARCHAR},#{summary})
+	</insert>
+	
+
+</mapper>

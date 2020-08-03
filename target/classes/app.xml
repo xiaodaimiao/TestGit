@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+	http://www.springframework.org/schema/mvc
+	http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context-4.3.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+	http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx-4.3.xsd
+	">
+	 
+	<!-- spring注解驱动 -->
+	<context:annotation-config></context:annotation-config>
+	<!-- 组件扫描的范围 -->
+	<context:component-scan base-package="cn.sz.gl"></context:component-scan>
+
+	
+
+	<!-- mvc注解驱动 -->
+	<mvc:annotation-driven conversion-service="conversionService" ></mvc:annotation-driven>
+	<!-- 准备日期转换 -->
+	<bean id="mydate" class="cn.sz.gl.util.MyDateConverter"></bean>
+	
+	<bean id="conversionService" class="org.springframework.context.support.ConversionServiceFactoryBean" >
+		<property name="converters">
+			<set>
+				<ref bean="mydate" />
+			</set>
+		</property>
+	</bean>
+	
+	
+	
+	<!-- <mvc:default-servlet-handler/> -->
+	<mvc:resources location="/css/" mapping="/css/**"/>
+	<mvc:resources location="/images/" mapping="/images/**"/>
+	<mvc:resources location="/js/" mapping="/js/**"/>
+	
+	
+	<!-- springmvc视图处理器 -->
+	<bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver" >
+		<property name="prefix" value="/" ></property>
+		<property name="suffix" value=".jsp" ></property>
+	</bean>
+	
+	<!-- 当需要引入一个properties文件的时候 -->
+	<context:property-placeholder location="classpath:myconn.properties" />
+	
+	<!-- 数据源 -->
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" >
+		<property name="driverClassName" value="${mydriver}" ></property>
+		<property name="url" value="${myurl}" ></property>
+		<property name="username" value="${myuser}" ></property>
+		<property name="password" value="${mypwd}" ></property>
+	</bean>
+	
+	<!-- 连接工厂 -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean"  >
+		<property name="dataSource" ref="dataSource" ></property>
+		<!-- 引入mybatis配置文件 -->
+		<property name="configLocation" value="classpath:mybatis_config.xml" ></property>
+		
+	</bean>
+
+	
+	<bean id="configurer" class="org.mybatis.spring.mapper.MapperScannerConfigurer" >
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory" ></property>
+		<property name="basePackage" value="cn.sz.gl.dao" ></property>
+	</bean>
+	
+	
+	<!-- 文件上传的操作对象 -->
+	<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver" >
+		<property name="defaultEncoding" value="utf-8" ></property>
+		<property name="maxUploadSize" value="100000000" ></property>
+	</bean>
+	
+	
+	<!-- 拦截器 -->
+	<!-- 此时进入mvc的所有请求，都会经过这个拦截器 -->
+	<!-- <bean id="checklogin" class="cn.sz.gl.util.LoginIntercepter"></bean>
+	<mvc:interceptors>
+		<ref bean="checklogin" />
+	</mvc:interceptors> -->
+	
+	<!-- 也可以把bean配置在拦截器里面，这样只能这个拦截器使用 -->
+	<!-- <mvc:interceptors>
+		<bean class="cn.sz.gl.util.LoginIntercepter ></bean>
+	</mvc:interceptors> -->
+	
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<mvc:mapping path="/**"/><!-- 这里表示拦截所有请求 -->
+			<!-- 有一些请求，是不需要通过拦截器的，这里通过mvc:exclude-mapping来排除这些请求 -->
+			<!-- mvc:exclude-mapping path="/a/findbyid" -->
+			<bean class="cn.sz.gl.util.LoginIntercepter" ></bean>
+		</mvc:interceptor>
+	</mvc:interceptors>
+	
+	
+	<!-- spring的事务：
+		分为编程式事务和申明式事务两种
+		这里推荐使用申明式事务
+		申明式事务的实现，有两种：配置文件配置的方式；注解
+	 -->
+	
+	
+	<!-- 配置文件方式处理事务:
+			1.准备事务管理对象;
+			2.制定事务管理规则
+			3.指定规则应用的范围;
+	 -->
+		<!-- 事务管理对象 -->
+		<!-- <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager" >
+			<property name="dataSource" ref="dataSource" ></property>
+		</bean> -->
+		
+		<!-- 事务管理规则 -->
+		<!-- 
+			isolation : 事务的隔离级别
+					READ_COMMITTED :  一个事务修改了数据，必须提交之后，其他事务才能拿到这个修改后的数据
+					READ_UNCOMMITTED : 一个事务修改了数据，提交之前，其他事务就能够拿到这个数据
+			
+			propagation : 事务的传播行为
+					REQUIRED : 如果现在有事务，就用现有的;如果没有，就开启新的事务;
+					REQUIRES_NEW : 不管现在有没有事务，都要开启新的事务;
+									新的事务开启后，原来如果有事务，就把原来的事务挂起;
+					
+			rollback-for  ： 事务回滚的条件
+						当发生指定的异常的时候，事务就回滚;
+						
+			no-rollback-for : 事务不回滚的条件
+						当发生指定异常的时候，不回滚事务
+						
+			read-only : 是否是只读事务
+					为true，表示在该事务中，只能读，不能写
+					
+			timeout : 事务执行需要的时间
+					事务执行共花费的时间，超过指定的值，不管有没有发生异常，都要回滚
+		 -->
+		<!-- <tx:advice id="adv" transaction-manager="transactionManager" >
+			<tx:attributes>
+				<tx:method name="buy*" isolation="READ_COMMITTED" propagation="REQUIRED"  rollback-for="cn.sz.gl.util.StoreHouseLessException,cn.sz.gl.util.MoneyLessException" ></tx:method>
+			</tx:attributes>
+		</tx:advice> -->
+		
+		<!-- 绑定规则作用范围 -->
+		<!-- <aop:config>
+			<aop:pointcut expression="execution(* cn.sz.gl.service.IBookService.*(..))" id="bs"/>
+			<aop:advisor advice-ref="adv" pointcut-ref="bs" />
+		</aop:config> -->
+
+
+	<!-- 注解方式实现事务 -->
+	<!-- 准备事务管理对象 -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager" >
+		<property name="dataSource" ref="dataSource" ></property>
+	</bean>
+	
+	<!-- 引入事务的注解驱动 -->
+	<tx:annotation-driven transaction-manager="transactionManager" />
+	
+	
+	<!-- 
+		统一异常处理：
+		1.在jsp阶段，web.xml中，提供了error-page的写法，当发生指定异常的时候，指定跳转页面:
+		2.在spring中，也提供了一些异常处理的方式：
+			a. 通过@ExceptionHandler注解，来指定异常发生时需要完成的操作;
+				这种方式，只局限于注解所在的类中生效；	
+				为了能在所有控制器类中应用，可以写一个父类，添加@ExceptionHandler注解,然后让所有控制器类继承该父类;
+			b.	借助于spring提供的SimpleMappingExceptionResolver异常处理类，完成异常配置
+			c. 也可以自己来创建自己的异常处理类，实现HandlerExceptionResolver接口
+	
+	 -->
+	
+	<!-- <bean id="exceptionResolver" class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+		发生异常时，默认跳转的页面
+		<property  name="defaultErrorView" value="error_simple" ></property>
+		异常发生时，保存错误信息的对象的名字,默认叫做exception
+		<property name="exceptionAttribute" value="ex" ></property>
+		<property name="exceptionMappings" >
+			<props>
+				<prop key="cn.sz.gl.util.MoneyLessException" >error_simple</prop>
+				
+			</props>
+		</property>
+	</bean> -->
+	
+	<bean class="cn.sz.gl.control.MyExceptionHander"></bean>
+
+</beans>
